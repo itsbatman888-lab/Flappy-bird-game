@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Flappy Hero - Pro Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+        
+        * {
+            /* This is the magic line that stops the phone from zooming/scrolling on tap */
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body { 
+            margin: 0; padding: 0; overflow: hidden; background-color: #0f172a; 
+            font-family: 'Outfit', sans-serif; 
+            width: 100vw; height: 100vh;
+            position: fixed; /* Prevents the whole page from bouncing */
+        }
+
+        #game-container { 
+            position: relative; width: 100%; height: 100%; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+
+        canvas { 
+            display: block; background: linear-gradient(to bottom, #1e293b, #0f172a); 
+            max-width: 100%; max-height: 100%; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.8); 
+        }
+
+        .ui-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; color: white; z-index: 10; 
+        }
+
+        #score { 
+            position: absolute; top: 10%; font-size: 5rem; font-weight: 900; 
+            opacity: 0.3; text-shadow: 0 4px 12px rgba(0,0,0,0.5); 
+        }
+
+        .menu-card { 
+            background: rgba(30, 41, 59, 0.98); backdrop-filter: blur(15px); 
+            padding: 2.5rem; border-radius: 2.5rem; border: 1px solid rgba(255, 255, 255, 0.1); 
+            text-align: center; pointer-events: auto; width: 280px; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); 
+        }
+
+        .hidden { display: none !important; }
+
+        .btn-primary { 
+            background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; 
+            padding: 1.2rem 2rem; border-radius: 1.2rem; font-weight: 800; 
+            font-size: 1.3rem; cursor: pointer; border: none; width: 100%; 
+            margin-top: 1rem; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
+        }
+
+        #avatar-box { 
+            width: 120px; height: 120px; margin: 0 auto 1.5rem auto; 
+            border-radius: 50%; border: 5px solid #3b82f6; overflow: hidden; background: #1e293b; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div class="ui-layer">
+        <div id="score">0</div>
+        
+        <!-- Start Menu -->
+        <div id="start-menu" class="menu-card">
+            <h1 style="margin:0; font-size: 1.8rem; font-weight:900;">FLAPPY HERO</h1>
+            <p style="color: #60a5fa; margin-bottom: 1.5rem; font-weight:bold; font-size: 0.9rem;">BY YOU</p>
+            <div id="avatar-box">
+                <canvas id="p-canvas" width="120" height="120" style="width:100%; height:100%;"></canvas>
+            </div>
+            <button class="btn-primary" onclick="startGame()">START GAME</button>
+        </div>
+
+        <!-- Game Over -->
+        <div id="game-over" class="menu-card hidden">
+            <h2 style="font-size: 1.8rem; margin: 0; color: #ef4444;">CRASHED!</h2>
+            <div style="font-size: 4rem; font-weight: 900; margin: 1rem 0;" id="final-score">0</div>
+            <button class="btn-primary" onclick="resetGame()" style="background: #ef4444; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.4);">RETRY</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const pCanvas = document.getElementById('p-canvas');
+    const pCtx = pCanvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    
+    let state = 'START';
+    let score = 0;
+    let frames = 0;
+    let pipes = [];
+    let playerImg = new Image();
+
+    const player = {
+        x: 60, y: 300, v: 0, w: 55, h: 55,
+        jump() { if(state === 'PLAYING') this.v = -6; }
+    };
+
+    // Strict Facial Consistency Avatar
+    function drawHero() {
+        pCtx.clearRect(0,0,120,120);
+        // Skin
+        pCtx.fillStyle = '#eac0a3';
+        pCtx.beginPath(); pCtx.arc(60, 60, 50, 0, Math.PI*2); pCtx.fill();
+        // Hair (Strict identity: dark, swept texture)
+        pCtx.fillStyle = '#1a1a1a';
+        pCtx.beginPath();
+        pCtx.moveTo(20, 60); 
+        pCtx.quadraticCurveTo(20, 10, 60, 8); 
+        pCtx.quadraticCurveTo(105, 12, 105, 60);
+        pCtx.lineTo(105, 45);
+        pCtx.quadraticCurveTo(60, 0, 20, 45);
+        pCtx.fill();
+        // Eyes
+        pCtx.fillStyle = '#000';
+        pCtx.beginPath(); pCtx.arc(48, 60, 3.5, 0, Math.PI*2); pCtx.arc(75, 60, 3.5, 0, Math.PI*2); pCtx.fill();
+        // Jacket (Black with Blue collar)
+        pCtx.fillStyle = '#2563eb';
+        pCtx.beginPath(); pCtx.moveTo(30, 95); pCtx.lineTo(60, 120); pCtx.lineTo(90, 95); pCtx.fill();
+        pCtx.fillStyle = '#0f172a';
+        pCtx.beginPath(); pCtx.moveTo(30, 95); pCtx.lineTo(50, 95); pCtx.lineTo(60, 115); pCtx.lineTo(70, 95); pCtx.lineTo(90, 95); pCtx.lineTo(90, 120); pCtx.lineTo(30, 120); pCtx.fill();
+        
+        playerImg.src = pCanvas.toDataURL();
+    }
+
+    function resize() {
+        canvas.width = Math.min(window.innerWidth, 450);
+        canvas.height = window.innerHeight;
+    }
+
+    function spawnPipe() {
+        const gap = 185;
+        const top = Math.random() * (canvas.height - gap - 200) + 100;
+        pipes.push({ x: canvas.width, top: top, gap: gap, passed: false });
+    }
+
+    function startGame() {
+        state = 'PLAYING';
+        document.getElementById('start-menu').classList.add('hidden');
+        reset();
+    }
+
+    function reset() {
+        player.y = canvas.height/2; player.v = 0;
+        pipes = []; score = 0; frames = 0;
+        scoreEl.innerText = '0';
+    }
+
+    function endGame() {
+        state = 'OVER';
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('game-over').classList.remove('hidden');
+    }
+
+    function resetGame() {
+        document.getElementById('game-over').classList.add('hidden');
+        document.getElementById('start-menu').classList.remove('hidden');
+        state = 'START';
+    }
+
+    function loop() {
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        
+        if(state === 'PLAYING') {
+            if(frames % 100 === 0) spawnPipe();
+            player.v += 0.26;
+            player.y += player.v;
+            if(player.y + player.h > canvas.height || player.y < 0) endGame();
+
+            pipes.forEach((p, i) => {
+                p.x -= 3.5;
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 4;
+                
+                ctx.fillRect(p.x, 0, 70, p.top);
+                ctx.strokeRect(p.x, -5, 70, p.top+5);
+                ctx.fillRect(p.x, p.top + p.gap, 70, canvas.height);
+                ctx.strokeRect(p.x, p.top+p.gap, 70, canvas.height+5);
+
+                if(player.x + 15 < p.x + 70 && player.x + player.w - 15 > p.x && 
+                   (player.y + 15 < p.top || player.y + player.h - 15 > p.top + p.gap)) endGame();
+                
+                if(!p.passed && p.x + 70 < player.x) { p.passed = true; score++; scoreEl.innerText = score; }
+                if(p.x < -100) pipes.splice(i, 1);
+            });
+            frames++;
+        }
+
+        ctx.save();
+        ctx.translate(player.x + player.w/2, player.y + player.h/2);
+        ctx.rotate(Math.min(Math.PI/3.5, Math.max(-Math.PI/4, player.v * 0.1)));
+        ctx.shadowBlur = 15; ctx.shadowColor = '#3b82f6';
+        ctx.drawImage(playerImg, -player.w/2, -player.h/2, player.w, player.h);
+        ctx.restore();
+
+        requestAnimationFrame(loop);
+    }
+
+    // Prevent zoom/scroll on touch
+    window.addEventListener('touchstart', (e) => {
+        if(e.target.tagName !== 'BUTTON') e.preventDefault();
+        player.jump();
+    }, { passive: false });
+
+    window.onresize = resize;
+    window.onkeydown = (e) => { if(e.code === 'Space') player.jump(); };
+    canvas.onmousedown = (e) => { e.preventDefault(); player.jump(); };
+
+    resize();
+    drawHero();
+    loop();
+</script>
+</body>
+</html>
