@@ -8,8 +8,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
         
         * {
-            /* This is the magic line that stops the phone from zooming/scrolling on tap */
-            touch-action: none;
+            touch-action: none; /* Stops the phone from zooming/scrolling on fast taps */
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             -webkit-user-select: none;
@@ -19,7 +18,7 @@
             margin: 0; padding: 0; overflow: hidden; background-color: #0f172a; 
             font-family: 'Outfit', sans-serif; 
             width: 100vw; height: 100vh;
-            position: fixed; /* Prevents the whole page from bouncing */
+            position: fixed; 
         }
 
         #game-container { 
@@ -60,8 +59,18 @@
             margin-top: 1rem; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
         }
 
+        .btn-upload {
+            display: inline-block;
+            margin-top: 1.5rem;
+            color: #94a3b8;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
         #avatar-box { 
-            width: 120px; height: 120px; margin: 0 auto 1.5rem auto; 
+            width: 120px; height: 120px; margin: 0 auto 1rem auto; 
             border-radius: 50%; border: 5px solid #3b82f6; overflow: hidden; background: #1e293b; 
         }
     </style>
@@ -73,17 +82,22 @@
     <div class="ui-layer">
         <div id="score">0</div>
         
-        <!-- Start Menu -->
         <div id="start-menu" class="menu-card">
             <h1 style="margin:0; font-size: 1.8rem; font-weight:900;">FLAPPY HERO</h1>
-            <p style="color: #60a5fa; margin-bottom: 1.5rem; font-weight:bold; font-size: 0.9rem;">BY YOU</p>
+            <p style="color: #60a5fa; margin-bottom: 1.2rem; font-weight:bold; font-size: 0.8rem;">PRO EDITION</p>
+            
             <div id="avatar-box">
                 <canvas id="p-canvas" width="120" height="120" style="width:100%; height:100%;"></canvas>
             </div>
+
             <button class="btn-primary" onclick="startGame()">START GAME</button>
+            
+            <label class="btn-upload">
+                📸 Change Photo
+                <input type="file" id="face-upload" accept="image/*" style="display:none">
+            </label>
         </div>
 
-        <!-- Game Over -->
         <div id="game-over" class="menu-card hidden">
             <h2 style="font-size: 1.8rem; margin: 0; color: #ef4444;">CRASHED!</h2>
             <div style="font-size: 4rem; font-weight: 900; margin: 1rem 0;" id="final-score">0</div>
@@ -98,6 +112,7 @@
     const pCanvas = document.getElementById('p-canvas');
     const pCtx = pCanvas.getContext('2d');
     const scoreEl = document.getElementById('score');
+    const faceUpload = document.getElementById('face-upload');
     
     let state = 'START';
     let score = 0;
@@ -110,32 +125,48 @@
         jump() { if(state === 'PLAYING') this.v = -6; }
     };
 
-    // Strict Facial Consistency Avatar
-    function drawHero() {
+    // Personalized hero using facial consistency features (dark hair, black/blue jacket)
+    function drawDefaultHero() {
         pCtx.clearRect(0,0,120,120);
         // Skin
         pCtx.fillStyle = '#eac0a3';
         pCtx.beginPath(); pCtx.arc(60, 60, 50, 0, Math.PI*2); pCtx.fill();
-        // Hair (Strict identity: dark, swept texture)
+        // Hair structure
         pCtx.fillStyle = '#1a1a1a';
         pCtx.beginPath();
-        pCtx.moveTo(20, 60); 
-        pCtx.quadraticCurveTo(20, 10, 60, 8); 
-        pCtx.quadraticCurveTo(105, 12, 105, 60);
-        pCtx.lineTo(105, 45);
-        pCtx.quadraticCurveTo(60, 0, 20, 45);
-        pCtx.fill();
+        pCtx.moveTo(20, 60); pCtx.quadraticCurveTo(20, 10, 60, 8); pCtx.quadraticCurveTo(105, 12, 105, 60);
+        pCtx.lineTo(105, 45); pCtx.quadraticCurveTo(60, 0, 20, 45); pCtx.fill();
         // Eyes
         pCtx.fillStyle = '#000';
         pCtx.beginPath(); pCtx.arc(48, 60, 3.5, 0, Math.PI*2); pCtx.arc(75, 60, 3.5, 0, Math.PI*2); pCtx.fill();
-        // Jacket (Black with Blue collar)
+        // Clothing
         pCtx.fillStyle = '#2563eb';
         pCtx.beginPath(); pCtx.moveTo(30, 95); pCtx.lineTo(60, 120); pCtx.lineTo(90, 95); pCtx.fill();
         pCtx.fillStyle = '#0f172a';
         pCtx.beginPath(); pCtx.moveTo(30, 95); pCtx.lineTo(50, 95); pCtx.lineTo(60, 115); pCtx.lineTo(70, 95); pCtx.lineTo(90, 95); pCtx.lineTo(90, 120); pCtx.lineTo(30, 120); pCtx.fill();
-        
         playerImg.src = pCanvas.toDataURL();
     }
+
+    faceUpload.onchange = function(e) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                pCtx.clearRect(0,0,120,120);
+                pCtx.save();
+                pCtx.beginPath(); pCtx.arc(60, 60, 60, 0, Math.PI*2); pCtx.clip();
+                const aspect = img.width / img.height;
+                let dw, dh, ox, oy;
+                if(aspect > 1) { dh = 120; dw = 120 * aspect; ox = -(dw - 120)/2; oy = 0; }
+                else { dw = 120; dh = 120 / aspect; ox = 0; oy = -(dh - 120)/2; }
+                pCtx.drawImage(img, ox, oy, dw, dh);
+                pCtx.restore();
+                playerImg.src = pCanvas.toDataURL();
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    };
 
     function resize() {
         canvas.width = Math.min(window.innerWidth, 450);
@@ -174,47 +205,40 @@
 
     function loop() {
         ctx.clearRect(0,0,canvas.width, canvas.height);
-        
         if(state === 'PLAYING') {
             if(frames % 100 === 0) spawnPipe();
             player.v += 0.26;
             player.y += player.v;
             if(player.y + player.h > canvas.height || player.y < 0) endGame();
-
             pipes.forEach((p, i) => {
                 p.x -= 3.5;
-                ctx.fillStyle = '#1e293b';
-                ctx.strokeStyle = '#3b82f6';
-                ctx.lineWidth = 4;
-                
+                ctx.fillStyle = '#1e293b'; ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 4;
                 ctx.fillRect(p.x, 0, 70, p.top);
                 ctx.strokeRect(p.x, -5, 70, p.top+5);
                 ctx.fillRect(p.x, p.top + p.gap, 70, canvas.height);
                 ctx.strokeRect(p.x, p.top+p.gap, 70, canvas.height+5);
-
                 if(player.x + 15 < p.x + 70 && player.x + player.w - 15 > p.x && 
                    (player.y + 15 < p.top || player.y + player.h - 15 > p.top + p.gap)) endGame();
-                
                 if(!p.passed && p.x + 70 < player.x) { p.passed = true; score++; scoreEl.innerText = score; }
                 if(p.x < -100) pipes.splice(i, 1);
             });
             frames++;
         }
-
         ctx.save();
         ctx.translate(player.x + player.w/2, player.y + player.h/2);
         ctx.rotate(Math.min(Math.PI/3.5, Math.max(-Math.PI/4, player.v * 0.1)));
         ctx.shadowBlur = 15; ctx.shadowColor = '#3b82f6';
         ctx.drawImage(playerImg, -player.w/2, -player.h/2, player.w, player.h);
         ctx.restore();
-
         requestAnimationFrame(loop);
     }
 
-    // Prevent zoom/scroll on touch
+    // Touch logic for mobile jumping
     window.addEventListener('touchstart', (e) => {
-        if(e.target.tagName !== 'BUTTON') e.preventDefault();
-        player.jump();
+        if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
+            e.preventDefault();
+            player.jump();
+        }
     }, { passive: false });
 
     window.onresize = resize;
@@ -222,7 +246,7 @@
     canvas.onmousedown = (e) => { e.preventDefault(); player.jump(); };
 
     resize();
-    drawHero();
+    drawDefaultHero();
     loop();
 </script>
 </body>
